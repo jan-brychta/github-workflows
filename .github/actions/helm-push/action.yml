@@ -1,0 +1,11 @@
+name: 'Helm push'
+description: 'Packaging and pushing Helm chart into Harbor'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.CHART_NAME }}
+    - ${{ inputs.WORKING_DIRECTORY }}
+    - ${{ inputs.IMAGEHUB_USERNAME }}
+    - ${{ inputs.IMAGEHUB_PASSWORD }}
+    - ${{ inputs.IMAGEHUB_URL }}
