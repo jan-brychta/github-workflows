@@ -1,0 +1,62 @@
+env:
+  IMAGE_NAME: docker-hello-world
+  WORKING_DIRECTORY: ./example-apps
+
+name: Docker Build
+
+on:
+  push:
+    branches: 
+    - "main"
+    paths: # This is equal as WORKING_DIRECTORY, but has to be hardcoded because of workflow's workflow https://stackoverflow.com/questions/68336078/how-to-use-env-variable-on-workflow-level-github-actions
+     - example-apps/docker-hello-world/**
+  pull_request:
+    paths: # This is equal as WORKING_DIRECTORY, but has to be hardcoded because of workflow's workflow https://stackoverflow.com/questions/68336078/how-to-use-env-variable-on-workflow-level-github-actions
+     - example-apps/docker-hello-world/**
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IMAGEHUB_URL: ${{ secrets.IMAGEHUB_USERNAME}}
+      IMAGEHUB_USERNAME: ${{ secrets.IMAGEHUB_USERNAME}}
+      IMAGEHUB_PASSWORD: ${{ secrets.IMAGEHUB_PASSWORD}}
+    strategy:
+      matrix:
+        mfe_name: [shell, patient, dashboard, care-plan-builder]
+#         version: [10, 12, 14]
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      # Set outputs for creating COMMIT_SHORT_SHA
+      - name: Outputs 
+        id: vars
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      # Log in to a Docker registry or cloud backend.
+      - name: Login
+        run: docker login $IMAGEHUB_URL -u $IMAGEHUB_USERNAME -p $IMAGEHUB_PASSWORD
+
+      # Build an image from a Dockerfile
+      - name: Build
+        env:
+          COMMIT_SHORT_SHA: ${{ steps.vars.outputs.sha_short }}
+          MATRIX_MFE_NAME: ${{ matrix.mfe_name }}
+        run: >
+          docker build
+          --build-arg APP_NAME=$MATRIX_MFE_NAME
+          -t $IMAGEHUB_URL/$IMAGE_NAME/$MATRIX_MFE_NAME:$COMMIT_SHORT_SHA
+          -t $IMAGEHUB_URL/$IMAGE_NAME/$MATRIX_MFE_NAME:latest
+          $WORKING_DIRECTORY/.
+          
+      # Push an image or a repository to a registry
+      - name: Push
+        env:
+          COMMIT_SHORT_SHA: ${{ steps.vars.outputs.sha_short }}
+          MATRIX_MFE_NAME: ${{ matrix.mfe_name }}
+        run: |
+          docker push $IMAGEHUB_URL/$IMAGE_NAME/$MATRIX_MFE_NAME:$COMMIT_SHORT_SHA
+          docker push $IMAGEHUB_URL/$IMAGE_NAME/$MATRIX_MFE_NAME:latest
